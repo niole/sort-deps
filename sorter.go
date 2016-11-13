@@ -4,10 +4,11 @@ import (
     "fmt"
     "os"
     "io/ioutil"
+    "regexp"
 )
 
 func main() {
-  getFiles("./../../gigster-sourceror/client/", "js")
+  getFiles("./../../../../../../gigster-sourceror/client/containers", "js")
 }
 
 func throwErr(e error) {
@@ -23,8 +24,8 @@ func getFiles(dirName string, suffix string) (selectFiles []string) {
 
   fChannel := allFiles(files)
 
-  p1 := fileProcessor(fChannel)
-  p2 := fileProcessor(fChannel)
+  p1 := fileProcessor(fChannel, dirName, suffix)
+  p2 := fileProcessor(fChannel, dirName, suffix)
 
   for f1 := range p1 {
     fmt.Println(f1)
@@ -37,11 +38,24 @@ func getFiles(dirName string, suffix string) (selectFiles []string) {
   return
 }
 
-func fileProcessor(files <-chan os.FileInfo) <-chan os.FileInfo {
+func matchesSuffix(file os.FileInfo, suffix string) (isMatch bool) {
+  match, err := regexp.MatchString(suffix+"$", file.Name())
+  isMatch = false
+  if err != nil {
+    isMatch = false
+  } else if (match) {
+    isMatch = true
+  }
+  return
+}
+
+func fileProcessor(files <-chan os.FileInfo, dirName string, suffix string) <-chan os.FileInfo {
     //TODO output will be js files with sorted dependencies
     out := make(chan os.FileInfo)
     go func() {
         for file := range files {
+            isMatch := matchesSuffix(file, suffix)
+            fmt.Println(isMatch)
             out <- file
         }
         close(out)
@@ -59,4 +73,3 @@ func allFiles(files []os.FileInfo) <-chan os.FileInfo {
     }()
     return out
 }
-
