@@ -55,8 +55,9 @@ func fileProcessor(files <-chan os.FileInfo, dirName string, suffix string) <-ch
     go func() {
         for file := range files {
             isMatch := matchesSuffix(file, suffix)
-            fmt.Println(isMatch)
-            out <- file
+            if isMatch {
+              out <- file
+            }
         }
         close(out)
     }()
