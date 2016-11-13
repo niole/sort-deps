@@ -17,29 +17,27 @@ var IMPORT_PATTERN = "import (.)* from"
 
 
 func main() {
-  getFiles("./", "js")
+  getFiles("./", ".js")
 }
 
-func getFiles(dirName string, suffix string) (selectFiles []string) {
+func getFiles(dirName string, suffix string) {
   //get files of certain suffix in certain directory
-  //processes in two parallel channels
+  //processes in n parallel channels
   fChannel := allFiles(dirName)
-
-  p1 := fileProcessor(fChannel, dirName, suffix)
-  p2 := fileProcessor(fChannel, dirName, suffix)
-
-  for f1 := range p1 {
-    fmt.Println(f1)
-  }
-
-  for f2 := range p2 {
-    fmt.Println(f2)
-  }
-
-  return
+  parralelizer(2, fChannel, dirName, suffix)
 }
 
-func sortDeps(dirName string, file os.FileInfo) string {
+func parralelizer(totalThreads int, fChannel <-chan os.FileInfo, dirName string, suffix string) {
+  for nthThread := 0; nthThread < totalThreads; nthThread++ {
+    p := fileProcessor(fChannel, dirName, suffix)
+
+    for fileName := range p {
+      fmt.Println(fileName)
+    }
+  }
+}
+
+func sortDeps(dirName string, file os.FileInfo, suffix string) string {
   //gets contents of specified file in specified directory
   //and sorts the contents according to airbnb styleguid
   //returns a file
@@ -57,7 +55,9 @@ func sortDeps(dirName string, file os.FileInfo) string {
     sortedFile = sort(sortedFile, scanner.Text(), 0)
   }
 
-  fileHandle, _ := os.Create("./output.txt");
+  formattedFileName := rgx(suffix).ReplaceAllString(fileName, "")
+  fileHandle, _ := os.Create("./processed/" + formattedFileName + "_sorted.txt");
+
   writer := bufio.NewWriter(fileHandle)
   defer fileHandle.Close()
 
@@ -187,7 +187,7 @@ func fileProcessor(files <-chan os.FileInfo, dirName string, suffix string) <-ch
       for file := range files {
           isMatch := matchesSuffix(file, suffix)
           if isMatch {
-            sortedFile := sortDeps(dirName, file)
+            sortedFile := sortDeps(dirName, file, suffix)
             out <- sortedFile
           }
       }
