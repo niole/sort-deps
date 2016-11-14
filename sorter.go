@@ -1,3 +1,8 @@
+/*
+Package main executes a parralel dependency sorter that looks at JavaScript files in current directory
+and sorts their dependencies according to the aibnb style guide
+*/
+
 package main
 
 import (
@@ -20,13 +25,14 @@ func main() {
   getFiles("./", ".js")
 }
 
+//getFiles gets files of certain suffix in certain directory
+//processes in n parallel channels
 func getFiles(dirName string, suffix string) {
-  //get files of certain suffix in certain directory
-  //processes in n parallel channels
   fChannel := allFiles(dirName)
   parralelizer(2, fChannel, dirName, suffix)
 }
 
+//parralelizer is a utility that multiplexes the work done by this code processor
 func parralelizer(totalThreads int, fChannel <-chan os.FileInfo, dirName string, suffix string) {
   for nthThread := 0; nthThread < totalThreads; nthThread++ {
     p := fileProcessor(fChannel, dirName, suffix)
@@ -37,11 +43,10 @@ func parralelizer(totalThreads int, fChannel <-chan os.FileInfo, dirName string,
   }
 }
 
+//sortDeps gets contents of specified file in specified directory
+//and sorts the contents according to airbnb style guide
+//returns name of file just sorted
 func sortDeps(dirName string, file os.FileInfo, suffix string) string {
-  //gets contents of specified file in specified directory
-  //and sorts the contents according to airbnb styleguid
-  //returns a file
-
   fileName := file.Name()
   contents, err := os.Open(dirName+fileName)
   if err != nil {
@@ -69,9 +74,9 @@ func sortDeps(dirName string, file os.FileInfo, suffix string) string {
   return fileName
 }
 
+//sort puts curr in next appropriate spot by scanning soFar and using compareLines
+//to determine in which part of soFar curr should go
 func sort(soFar []string, curr string, index int) []string {
-  //uses compareLines to determine where current string should go
-  //index is the index you're comparing with
   if len(soFar) == 0 {
     return []string{curr}
   }
@@ -108,26 +113,30 @@ func sort(soFar []string, curr string, index int) []string {
   return soFar
 }
 
+//prepend is a utility for prepending a string
+//to a slice
 func prepend(curr string, soFar []string) []string {
   return append([]string{curr}, soFar...)
 }
 
+//sandwich sticks curr between slice1
+//and slice2 and returns the result
 func sandwich(slice1 []string, slice2 []string, curr string) []string {
-  //sandwhich curr between slices
-  //for string slices
   secondHalf := make([]string, len(slice2))
   copy(secondHalf, slice2)
   firstHalf := append(slice1, curr)
   return append(firstHalf, secondHalf...)
 }
 
+//compareLines returns 1 if fst should come after snd,
+//-1 or 0 if fst and snd are in proper order or -2 if we're
+//looking at a code block.
+//This is where the logic from the airbnb style guide comes
+//into play. The sorting is implemented with the notion that
+//imports come before requires
+//absolute paths come before relative paths
+//and paths are sorted alphabetically
 func compareLines(fst string, snd string) int {
-  //returns 1 if l1 comes after l2, -1 if comes before
-  //0 if neither should move
-  //imports before requires
-  //absolute paths before relative paths
-  //sort alphabetically by paths
-
   fstIsRequire := test(REQUIRE_PATTERN, fst)
   sndIsRequire := test(REQUIRE_PATTERN, snd)
 
@@ -178,10 +187,10 @@ func compareLines(fst string, snd string) int {
   return 1
 }
 
+//fileProcessor takes a stream of files and outputs as stream
+//the file names of files successfully processed
+//while writing the sorted results to output files
 func fileProcessor(files <-chan os.FileInfo, dirName string, suffix string) <-chan string {
-  //takes a stream of files and outputs as stream
-  //the file names of files successfully processed
-  //while writing to an output file
   out := make(chan string)
   go func() {
       for file := range files {
@@ -196,9 +205,9 @@ func fileProcessor(files <-chan os.FileInfo, dirName string, suffix string) <-ch
   return out
 }
 
+//getPathContent returns value of path excluding periods or slashes.
+//This makes it easier to compare paths alphabetically
 func getPathContent(line string, isRelative bool) string {
-  //returns value of path excluding any periods or slashes
-  //this makes it easier to compare paths alphabetically
   content := rgx(GET_SINGLE_QUOTE_PATH_PATTERN).FindString(line)
   if content == "" {
     content = rgx(GET_DOUBLE_QUOTE_PATH_PATTERN).FindString(line)
@@ -212,28 +221,27 @@ func getPathContent(line string, isRelative bool) string {
   return ""
 }
 
+//allFiles returns a stream of all files in a specified
+//directory via a channel
 func allFiles(dirName string) <-chan os.FileInfo {
-    //returns a stream of all files in a specified
-    //directory via a channel
+  files, err := ioutil.ReadDir(dirName)
+  if err != nil {
+    throwErr(err)
+  }
 
-    files, err := ioutil.ReadDir(dirName)
-    if err != nil {
-      throwErr(err)
-    }
-
-    out := make(chan os.FileInfo)
-    go func() {
-        for _, file := range files {
-          out <- file
-        }
-        close(out)
-    }()
-    return out
+  out := make(chan os.FileInfo)
+  go func() {
+      for _, file := range files {
+        out <- file
+      }
+      close(out)
+  }()
+  return out
 }
 
+//test returns a boolean which indicates if the input string
+//contains input pattern
 func test(pattern string, s string) (isMatch bool) {
-  //returns a boolean indicated if the input string
-  //contains input pattern
   match, err := regexp.MatchString(pattern, s)
   if err != nil {
     return false
@@ -241,17 +249,17 @@ func test(pattern string, s string) (isMatch bool) {
   return match
 }
 
+//matchesSuffix tests if string occurs at end of file name
 func matchesSuffix(file os.FileInfo, suffix string) bool {
-  //tests if string occurs at end of file name
   return test(suffix+"$", file.Name())
 }
 
+//rgx returns regexp version of pattern
 func rgx(pattern string) *regexp.Regexp {
-  //returns regexp version of pattern
   return regexp.MustCompile(pattern)
 }
 
+//throwErr is a wrapper for panic
 func throwErr(e error) {
-  //wrapper for panic
   panic(e)
 }
